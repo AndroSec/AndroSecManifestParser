@@ -12,12 +12,17 @@ import org.w3c.dom.Node;
 import org.w3c.dom.Element;
 
 import java.io.File;
+import java.util.ArrayList;
 
 import org.w3c.dom.Document;
 
 public class Main {
 
+	static ArrayList <AppAndroidManifest> manifests;
+	
 	public static void main(String[] args) {
+		manifests = new ArrayList<AppAndroidManifest>();
+		
 		File[] files = new File(
 				"E:/GitHub/AndroSec/VersionControlExtractor/datarepo/datascan_2_3_2015/mainOutput")
 				.listFiles();
@@ -43,21 +48,20 @@ public class Main {
 				}
 				System.out.println("Commit Directories: " + cnt2);
 
-				if (cnt > 3)break;
+				if (cnt > 30)break;
 			} else {
 				System.out.println("File: " + file.getName());
 			}
 		}
 		System.out.println("Total Commits to Analyze: " + totalCommits);
-
+		System.out.println("Total Manifests Saved: " + manifests.size());
 	}
 
 	static void parseXML(File xmlFile) {
 		try {
 
 			File fXmlFile = new File(xmlFile.getAbsolutePath()
-					+ "/AndroidManifest.xml");// new
-												// File("/Users/mkyong/staff.xml");
+					+ "/AndroidManifest.xml");
 
 			System.out.println("Current File: " + fXmlFile.getAbsolutePath());
 			
@@ -66,9 +70,6 @@ public class Main {
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
 			Document doc = dBuilder.parse(fXmlFile);
 
-			// optional, but recommended
-			// read this -
-			// http://stackoverflow.com/questions/13786607/normalization-in-dom-parsing-with-java-how-does-it-work
 			doc.getDocumentElement().normalize();
 
 			System.out.println("Root element :"
@@ -81,6 +82,11 @@ public class Main {
 			System.out.println("android:versionName : "
 					+ doc.getDocumentElement().getAttribute(
 							"android:versionName"));
+			
+			AppAndroidManifest myManifest = new AppAndroidManifest("", doc.getDocumentElement().getAttribute(
+					"android:versionCode"), doc.getDocumentElement().getAttribute(
+							"android:versionName"), doc.getDocumentElement().getAttribute(
+									"package"));
 
 			NodeList nList = doc.getElementsByTagName("uses-permission");
 			System.out.println("Total Permissions : " + nList.getLength());
@@ -95,6 +101,7 @@ public class Main {
 				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
 
 					Element eElement = (Element) nNode;
+					myManifest.addPermission(eElement.getAttribute("android:name"));
 					System.out.println("Permission : "
 							+ eElement.getAttribute("android:name"));
 				}
@@ -112,13 +119,47 @@ public class Main {
 
 				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
 					Element eElement = (Element) nNode;
-					System.out.println("Activity : "+ eElement.getAttribute("android:name"));
+					
+					//myManifest.addActivity(eElement.getAttribute("android:name"));
+					
+					Activity myActivity = new Activity(eElement.getAttribute("android:name"));
+					// process actions
+					NodeList ActivityChildren = eElement.getChildNodes();
+					for (int x=0; x < ActivityChildren.getLength(); x++){
+						Node anNode = ActivityChildren.item(x);		
+
+						if (anNode.getNodeType() == Node.ELEMENT_NODE) {
+							Element aElement = (Element) anNode; // this is our intent
+							
+							NodeList intentChildren = aElement.getChildNodes();
+							System.out.println("Number of Actions and Categories: " + intentChildren.getLength());
+							
+							for (int y=0; y< intentChildren.getLength(); y++){
+								Node bNode = intentChildren.item(y);
+								if (bNode.getNodeType() == Node.ELEMENT_NODE) {
+									Element bElement = (Element) bNode; // this is our intent
+									System.out.println("#### NAME: " + bElement.getNodeName() + " : " + bElement.getAttribute("android:name"));
+									
+									String str = bElement.getAttribute("android:name");
+									if (bElement.getNodeName() == "category"){
+										myActivity.addCategory(str);
+									} else if (bElement.getNodeName() == "action"){
+										myActivity.addAction(str);
+									}
+									
+								}
+							}
+						}	
+					}
+					myManifest.addActivity(myActivity);
+					
+					//System.out.println("Activity : "+ eElement.getAttribute("android:name"));
 				}
 			}
 			
 			System.out.println("---------------------------- ACTIVITY END");
 			
-			System.out.println("*****\n---------------------------- ACTION START ");
+		/*	System.out.println("*****\n---------------------------- ACTION START ");
 			
 			nList = doc.getElementsByTagName("action");
 			System.out.println("Total Actions : " + nList.getLength());
@@ -132,7 +173,7 @@ public class Main {
 					
 					Element intentElement = (Element) eElement.getParentNode();
 					Element activityElement = (Element) intentElement.getParentNode();
-					
+					// myManifest.add
 					System.out.println(activityElement.getAttribute("android:name") + " - " + eElement.getAttribute("android:name"));
 				}
 			}
@@ -150,12 +191,14 @@ public class Main {
 					Element eElement = (Element) nNode;				
 					Element intentElement = (Element) eElement.getParentNode();
 					Element activityElement = (Element) intentElement.getParentNode();
-					
+					// myManifest.add					
 					
 					System.out.println(activityElement.getAttribute("android:name") + " - "+ eElement.getAttribute("android:name"));
 				}
 			}
 			System.out.println("---------------------------- INTENT CATEGORY END");
+			*/
+			manifests.add(myManifest);
 			
 		} catch (Exception e) {
 			e.printStackTrace();
