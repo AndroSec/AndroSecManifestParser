@@ -43,8 +43,7 @@ public class Main {
 				}
 				System.out.println("Commit Directories: " + cnt2);
 
-				if (cnt > 3)
-					break;
+				if (cnt > 3)break;
 			} else {
 				System.out.println("File: " + file.getName());
 			}
@@ -96,7 +95,7 @@ public class Main {
 				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
 
 					Element eElement = (Element) nNode;
-					System.out.println("android:name : "
+					System.out.println("Permission : "
 							+ eElement.getAttribute("android:name"));
 				}
 			}
@@ -113,7 +112,7 @@ public class Main {
 
 				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
 					Element eElement = (Element) nNode;
-					System.out.println("android:name : "+ eElement.getAttribute("android:name"));
+					System.out.println("Activity : "+ eElement.getAttribute("android:name"));
 				}
 			}
 			
@@ -121,24 +120,42 @@ public class Main {
 			
 			System.out.println("*****\n---------------------------- ACTION START ");
 			
-			nList = doc.getElementsByTagName("activity");
-			System.out.println("Total Activity : " + nList.getLength());
+			nList = doc.getElementsByTagName("action");
+			System.out.println("Total Actions : " + nList.getLength());
+			System.out.println("Parent Activity - Actions");
 			
-			for (int i=0; i<nList.getLength();i++){
-				NodeList iList = nList.item(i).getChildNodes();
-				System.out.println("Total Children : " + iList.getLength());
-				//
-				for (int c=0;c<iList.getLength();c++){
-					Node nNode = iList.item(c);	
-					if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-						Element eElement = (Element) nNode;
-						NodeList myIntents = eElement.getElementsByTagName("intent-filter");
-						System.out.println("android:name : "+ eElement.getElementsByTagName("intent-filter").item(0).getTextContent());
-					}
+			for (int x=0; x < nList.getLength(); x++){
+				Node nNode = nList.item(x);		
+
+				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+					Element eElement = (Element) nNode;
+					
+					Element intentElement = (Element) eElement.getParentNode();
+					Element activityElement = (Element) intentElement.getParentNode();
+					
+					System.out.println(activityElement.getAttribute("android:name") + " - " + eElement.getAttribute("android:name"));
 				}
 			}
-		
-			System.out.println("---------------------------- ACTION END");
+			System.out.println("---------------------------- INTENT ACTION END");
+			
+			System.out.println("*****\n---------------------------- INTENT CATEGORY START ");
+			
+			nList = doc.getElementsByTagName("category");
+			System.out.println("Total INTENT Category : " + nList.getLength());
+			System.out.println("Parent Activity - Intent Category");
+			for (int x=0; x < nList.getLength(); x++){
+				Node nNode = nList.item(x);		
+
+				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
+					Element eElement = (Element) nNode;				
+					Element intentElement = (Element) eElement.getParentNode();
+					Element activityElement = (Element) intentElement.getParentNode();
+					
+					
+					System.out.println(activityElement.getAttribute("android:name") + " - "+ eElement.getAttribute("android:name"));
+				}
+			}
+			System.out.println("---------------------------- INTENT CATEGORY END");
 			
 		} catch (Exception e) {
 			e.printStackTrace();
