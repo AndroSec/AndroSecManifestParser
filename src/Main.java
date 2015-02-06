@@ -55,6 +55,9 @@ public class Main {
 		}
 		System.out.println("Total Commits to Analyze: " + totalCommits);
 		System.out.println("Total Manifests Saved: " + manifests.size());
+		
+		saveManifestsToDB();
+		
 	}
 
 	static void parseXML(File xmlFile) {
@@ -119,10 +122,10 @@ public class Main {
 
 				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
 					Element eElement = (Element) nNode;
-					
-					//myManifest.addActivity(eElement.getAttribute("android:name"));
-					
+								
 					Activity myActivity = new Activity(eElement.getAttribute("android:name"));
+					System.out.println("Activity Name: " + myActivity._name);
+					
 					// process actions
 					NodeList ActivityChildren = eElement.getChildNodes();
 					for (int x=0; x < ActivityChildren.getLength(); x++){
@@ -145,8 +148,9 @@ public class Main {
 										myActivity.addCategory(str);
 									} else if (bElement.getNodeName() == "action"){
 										myActivity.addAction(str);
+									} else if (bElement.getNodeName() == "data"){
+										// do nothing
 									}
-									
 								}
 							}
 						}	
@@ -159,45 +163,6 @@ public class Main {
 			
 			System.out.println("---------------------------- ACTIVITY END");
 			
-		/*	System.out.println("*****\n---------------------------- ACTION START ");
-			
-			nList = doc.getElementsByTagName("action");
-			System.out.println("Total Actions : " + nList.getLength());
-			System.out.println("Parent Activity - Actions");
-			
-			for (int x=0; x < nList.getLength(); x++){
-				Node nNode = nList.item(x);		
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-					Element eElement = (Element) nNode;
-					
-					Element intentElement = (Element) eElement.getParentNode();
-					Element activityElement = (Element) intentElement.getParentNode();
-					// myManifest.add
-					System.out.println(activityElement.getAttribute("android:name") + " - " + eElement.getAttribute("android:name"));
-				}
-			}
-			System.out.println("---------------------------- INTENT ACTION END");
-			
-			System.out.println("*****\n---------------------------- INTENT CATEGORY START ");
-			
-			nList = doc.getElementsByTagName("category");
-			System.out.println("Total INTENT Category : " + nList.getLength());
-			System.out.println("Parent Activity - Intent Category");
-			for (int x=0; x < nList.getLength(); x++){
-				Node nNode = nList.item(x);		
-
-				if (nNode.getNodeType() == Node.ELEMENT_NODE) {
-					Element eElement = (Element) nNode;				
-					Element intentElement = (Element) eElement.getParentNode();
-					Element activityElement = (Element) intentElement.getParentNode();
-					// myManifest.add					
-					
-					System.out.println(activityElement.getAttribute("android:name") + " - "+ eElement.getAttribute("android:name"));
-				}
-			}
-			System.out.println("---------------------------- INTENT CATEGORY END");
-			*/
 			manifests.add(myManifest);
 			
 		} catch (Exception e) {
@@ -205,4 +170,8 @@ public class Main {
 		}
 	}
 
+	static void saveManifestsToDB(){
+		
+	}
+	
 }
