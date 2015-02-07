@@ -1,27 +1,30 @@
 package src;
 
 import java.io.File;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.ArrayList;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
 
 import org.w3c.dom.Document;
-import org.w3c.dom.NodeList;
-import org.w3c.dom.Node;
 import org.w3c.dom.Element;
-
-import java.io.File;
-import java.util.ArrayList;
-
-import org.w3c.dom.Document;
+import org.w3c.dom.Node;
+import org.w3c.dom.NodeList;
 
 public class Main {
 
 	static ArrayList <AppAndroidManifest> manifests;
+	static ArrayList <Packages> packageNames;
 	
 	public static void main(String[] args) {
 		manifests = new ArrayList<AppAndroidManifest>();
+		packageNames = new ArrayList<Packages>();
 		
 		File[] files = new File(
 				"E:/GitHub/AndroSec/VersionControlExtractor/datarepo/datascan_2_3_2015/mainOutput")
@@ -48,12 +51,11 @@ public class Main {
 				}
 				System.out.println("Commit Directories: " + cnt2);
 
-				if (cnt > 30)break;
-			} else {
-				System.out.println("File: " + file.getName());
+				if (cnt > 5)break; // limit size for testing
 			}
 		}
 		System.out.println("Total Commits to Analyze: " + totalCommits);
+		System.out.println("Average Commits per App: " + ((double)totalCommits / cnt));
 		System.out.println("Total Manifests Saved: " + manifests.size());
 		
 		saveManifestsToDB();
@@ -75,10 +77,16 @@ public class Main {
 
 			doc.getDocumentElement().normalize();
 
+			System.out.println("Commit: " + xmlFile.getName());
 			System.out.println("Root element :"
 					+ doc.getDocumentElement().getNodeName());
 			System.out.println("package : "
 					+ doc.getDocumentElement().getAttribute("package"));
+			
+			String strPackageName = doc.getDocumentElement().getAttribute("package");
+			
+			addPackageNameToRunningList(strPackageName);
+			
 			System.out.println("android:versionCode : "
 					+ doc.getDocumentElement().getAttribute(
 							"android:versionCode"));
@@ -86,10 +94,12 @@ public class Main {
 					+ doc.getDocumentElement().getAttribute(
 							"android:versionName"));
 			
-			AppAndroidManifest myManifest = new AppAndroidManifest("", doc.getDocumentElement().getAttribute(
-					"android:versionCode"), doc.getDocumentElement().getAttribute(
-							"android:versionName"), doc.getDocumentElement().getAttribute(
-									"package"));
+			AppAndroidManifest myManifest = new AppAndroidManifest("", 
+																	doc.getDocumentElement().getAttribute("android:versionCode"), 
+																	doc.getDocumentElement().getAttribute("android:versionName"), 
+																	strPackageName,
+																	xmlFile.getName()
+																	);
 
 			NodeList nList = doc.getElementsByTagName("uses-permission");
 			System.out.println("Total Permissions : " + nList.getLength());
@@ -144,11 +154,11 @@ public class Main {
 									System.out.println("#### NAME: " + bElement.getNodeName() + " : " + bElement.getAttribute("android:name"));
 									
 									String str = bElement.getAttribute("android:name");
-									if (bElement.getNodeName() == "category"){
+									if (bElement.getNodeName().equals("category")){
 										myActivity.addCategory(str);
-									} else if (bElement.getNodeName() == "action"){
+									} else if (bElement.getNodeName().equals("action")){
 										myActivity.addAction(str);
-									} else if (bElement.getNodeName() == "data"){
+									} else if (bElement.getNodeName().equals("data")){
 										// do nothing
 									}
 								}
@@ -171,7 +181,118 @@ public class Main {
 	}
 
 	static void saveManifestsToDB(){
+		String DBLocation="E:/GitHub/AndroSec/VersionControlExtractor/db/AndrosecDatabase.sqlite";
+	    Connection c = null;
+	    Statement stmt = null;
+
+	    
+	    try {
+	      Class.forName("org.sqlite.JDBC");
+	      c = DriverManager.getConnection("jdbc:sqlite:" + DBLocation);
+	      System.out.println("Opened database successfully");
+	      
+	      // START - INSERT ONLY UNIQUE PACKAGE NAMES TO GET UNIQUE APP ID
+	      
+	      	for (int x=0; x < packageNames.size(); x++){
+	      		
+	      		Packages myPackage = packageNames.get(x);
+	      		
+	      		// **** THIS NEEDS TO BE CHANGED TO PULL THE ALREADY EXISTING APPID'S FROM THE ANDROID_MANIFEST_APPINFO TABLE - CURRENTLY EMPTY.
+	      		String strSQL = "INSERT INTO Android_Manifest_AppInfo (AppName) VALUES ('" + myPackage.packageName + "');";
+				stmt = c.createStatement();
+			
+			      //stmt.executeUpdate(strSQL);
+				PreparedStatement statement = c.prepareStatement(strSQL, Statement.RETURN_GENERATED_KEYS);
+	
+			    int affectedRows = statement.executeUpdate();
+	
+			    if (affectedRows == 0) {
+			    	throw new SQLException("Creating user failed, no rows affected.");
+			    }
+	
+			    ResultSet generatedKeys = statement.getGeneratedKeys();
+			    if (generatedKeys.next()) {
+			    	myPackage.appID = (int) generatedKeys.getLong(1);
+			    	System.out.println("dbAppID " + myPackage.appID   + " generated for " + myPackage.packageName);
+		        } else {
+		        	throw new SQLException("Creating user failed, no ID obtained.");
+			    }
+			  	
+			    stmt.close();
+	      	}
+	      
+	      // END - INSERT ONLY UNIQUE PACKAGE NAMES TO GET UNIQUE APP ID	     
+	      	
+	      	// START - reconcile package names and app id
+	      	
+	      		for (int x=0; x < manifests.size(); x++){
+	      			AppAndroidManifest myManifest = manifests.get(x);
+	      			
+	      			for (int y=0; y < packageNames.size(); y++){
+	      				Packages myPackage = packageNames.get(y);
+	      				
+	      				if (myManifest._package.equals(myPackage.packageName)){
+	      					myManifest.dbAppID = myPackage.appID;
+	      					break;
+	      				}
+	      			}
+	      		}
+	      	
+	      		// dispose of package name list
+	      		packageNames = null;
+	      		
+	      	// END - reconcile package names and app id
+	      	
+	    
+			/*for (int x=0; x < manifests.size(); x++){
+				AppAndroidManifest myManifest = manifests.get(x);
+				
+				//String strSQL = "INSERT INTO Android_Manifest_CommitInfo (Commit_val, Author_name, Author_email";
+				String strSQL = "INSERT INTO Android_Manifest_AppInfo (AppName) VALUES ('" + myManifest._package + "');";
+				stmt = c.createStatement();
+			
+			      //stmt.executeUpdate(strSQL);
+				PreparedStatement statement = c.prepareStatement(strSQL, Statement.RETURN_GENERATED_KEYS);
+	
+			    int affectedRows = statement.executeUpdate();
+	
+			    if (affectedRows == 0) {
+			    	throw new SQLException("Creating user failed, no rows affected.");
+			    }
+	
+			    ResultSet generatedKeys = statement.getGeneratedKeys();
+			    if (generatedKeys.next()) {
+			    	myManifest.dbAppID = (int) generatedKeys.getLong(1);
+			    	System.out.println("dbAppID " + myManifest.dbAppID  + " generated for " + myManifest._package);
+		        } else {
+		        	throw new SQLException("Creating user failed, no ID obtained.");
+			    }
+			  	
+			    stmt.close();
+				//c.commit();
+				 
+			}*/
+		c.close();
+        } catch(Exception e){
+        	System.out.println("ERROR.  Exiting (1)");
+        	e.printStackTrace();
+        	System.exit(1);
+        	// hard exit - something is wrong with the db insert
+        }
+	}
+	
+	static void addPackageNameToRunningList(String strPackageName){
+		boolean foundFlag=false;
+		for (int x=0;x<packageNames.size();x++){
+			if (packageNames.get(x).packageName.equals(strPackageName)){
+				foundFlag = true;
+				break;
+			}
+		}
 		
+		if (!foundFlag){
+			packageNames.add(new Packages(strPackageName, -1));
+		}
 	}
 	
 }
